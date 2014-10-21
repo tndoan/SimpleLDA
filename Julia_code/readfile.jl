@@ -2,13 +2,14 @@ module readfile
 
     function readFile(filename="../data/ap.dat")
         # read the data file
-        result = (Int64, Dict)[]
+        # return list of document whose format is 1st value is the number of words and following array of pair (word id, its frequency)
+        result = (Int64, [])[]
         open(filename, "r") do f
             for line in eachline(f)
                 comp = split(line, " ")
                 numWords = int(comp[1])
                 bagOfWords = comp[2:size(comp)[1]]
-                wordInfo = Dict()
+                wordInfo = []
                 for word in bagOfWords
                     temp = split(word, ":")
                     if length(temp) != 2
@@ -16,7 +17,7 @@ module readfile
                     end
                     # temp[1] is the word id
                     # temp[2] is the number of times that this word appears in document
-                    wordInfo[temp[1]] = int(temp[2])
+                    push!(wordInfo, (int(temp[1]), int(temp[2])))
                 end
                 tuple = (numWords, wordInfo)
                 push!(result, tuple)
