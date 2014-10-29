@@ -1,6 +1,8 @@
 This is my clone of [SimpleLDA-R](https://github.com/cjrd/SimpleLDA-R). I will use this code as a groudtruth to check with my Julia implementation. 
 
-Below is the original Readme file from SimpleLDA-R
+The format of data could be found in the homepage of Prof. David Blei.
+
+Below is the original Readme file from SimpleLDA-R.
 
 =================
 
