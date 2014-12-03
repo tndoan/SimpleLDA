@@ -1,21 +1,7 @@
 require("utils")
 
-function initialize(K, corpus, alpha)
-    D = length(corpus)
-    phi = ones(D, N, K) * 1/ K
-    temp = copy(alpha)
-    gamma = repmat(temp', D, 1)
-    for i=1:D
-        for j=1:K
-            gamma[i, j] = gamma[i, j] + corpus[i][1] / K
-        end
-    end
-    beta = zeros(N, K)
-   return (phi, gamma, beta)
-end
-
 # TODO: function to calculate likelihood
-function calculateLikelihood()
+function calculateLikelihood(alpha, beta)
     return 0
 end
 
@@ -91,6 +77,7 @@ function MStep(K, D, N, phi, gamma, matrix)
         h = D * (trigamma(sum(oldAlpha)) - eye(K) * trigamma(oldAlpha))
 
         # calculate alpha
+        # TODO could be better if we use optimization from paper
         alpha = oldAlpha - inv(h) * g
 
         # check convergence
@@ -137,5 +124,4 @@ function doingEM(K, alpha, vocFile="../data/vocab.txt", dataFile="../data/ap.dat
         # checking convergence
 
     end
-
 end
