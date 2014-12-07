@@ -2,6 +2,7 @@ require("utils")
 
 # TODO: function to calculate likelihood
 function calculateLikelihood(alpha, beta)
+
     return 0
 end
 
@@ -90,7 +91,8 @@ function MStep(K, D, N, phi, gamma, matrix)
     return (alpha, beta)
 end
 
-function doingEM(K, alpha, vocFile="../data/vocab.txt", dataFile="../data/ap.dat")
+
+function doingEM(K, alpha, beta, vocFile="../data/vocab.txt", dataFile="../data/ap.dat")
     # K is number of topic
     # D number of documents
     # N total number of words
@@ -107,6 +109,12 @@ function doingEM(K, alpha, vocFile="../data/vocab.txt", dataFile="../data/ap.dat
     phi = zeros(D, N, K)
     gamma = zeros(K, D)
 
+    # old alpha, beta
+    alpha0 = alpha
+    beta0 = beta
+
+    threshold = 0.001
+
     while ~convergent
         # loop until convergence
 
@@ -122,6 +130,12 @@ function doingEM(K, alpha, vocFile="../data/vocab.txt", dataFile="../data/ap.dat
         (alpha, beta) = MStep(K, N, phi, gamma, matrix)
 
         # checking convergence
-
+        errRate = sum(abs(alpha - alpha0)) + sum(abs(beta - beta0))
+        if errRate < threshold
+            convergent = true
+        else
+            alpha0 = alpha
+            beta0 = beta
+        end
     end
 end
