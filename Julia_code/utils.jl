@@ -36,7 +36,7 @@ function readVoc(filename="../data/vocab.txt")
     return result
 end
 
-function readMatrix(filename="../data/ap.dat", voc)
+function readMatrix(voc, filename="../data/ap.dat")
     # read data file
     # filename name of file contain LDA-C format
     # voc list of vocabulary
