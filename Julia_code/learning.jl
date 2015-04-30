@@ -1,9 +1,19 @@
 require("utils")
 
-# TODO: function to calculate likelihood
-function calculateLikelihood(alpha, beta)
+function calculateLikelihood(matrix, beta, gammas)
+    llh = 0
+    D, V = size(matrix) # number of documents
 
-    return 0
+    for i = 1:D
+        g = gammas[:, d]  / sum(gammas[:, d]) # normalize
+        for j = 1:V
+            if matrix[i, j] != 0
+                llh += matrix[i, j] * dot(g, beta[:, j])
+            end
+        end
+    end
+
+    return llh
 end
 
 function EStep(K, N, d, alpha, beta, docVector)
@@ -28,7 +38,7 @@ function EStep(K, N, d, alpha, beta, docVector)
 
         # update phi
         e_dig = exp(digamma(gamma))
-        phi = beta[:, d] .* repmat(e_dig, 1, N)
+        phi = beta[:, d] .* repmat(e_dig, 1, N) # TODO error: beta
         phi = phi ./ repmat(sum(phi, 2), 1, N)
 
         # update gamma
