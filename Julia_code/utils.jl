@@ -1,21 +1,21 @@
 function readFile(filename="../data/ap.dat")
     # read the data file
     # return list of document whose format is 1st value is the number of words and following array of pair (word id, its frequency)
-    result = (Int64, [])[]
+    result = {}
     open(filename, "r") do f
         for line in eachline(f)
             comp = split(line, " ")
             numWords = int(comp[1])
             bagOfWords = comp[2:size(comp)[1]]
-            wordInfo = []
+            wordInfo = (Int64, Int64)[]
             for word in bagOfWords
                 temp = split(word, ":")
                 if length(temp) != 2
                     continue
                 end
-                # temp[1] is the word id
+                # temp[1] is the word id. +1 to avoid index 0 because Julia starts from 1
                 # temp[2] is the number of times that this word appears in document
-                push!(wordInfo, (int(temp[1]), int(temp[2])))
+                push!(wordInfo, (int(temp[1]) + 1, int(temp[2])))
             end
             tuple = (numWords, wordInfo)
             push!(result, tuple)
@@ -51,6 +51,7 @@ function convertToMatrix(corpus, voc)
     # convert corpus which is returned by readFile to matrix D x N
     # D is number of document
     # N is number of words 
+    # TODO: It is not efficient to create this matrix. Improve latter
 
     N = length(voc) # number of words
     D = length(corpus) # number of documents
@@ -58,11 +59,11 @@ function convertToMatrix(corpus, voc)
 
     for d=1:D
         doc = corpus[d]
-        numWords = doc[0]
-        wordInfo = doc[1]
+        numWords = doc[1]
+        wordInfo = doc[2]
         for word in wordInfo
-            wordId = word[0]
-            occurrence = word[1]
+            wordId = word[1]
+            occurrence = word[2]
             result[d, wordId] = occurrence
         end
     end
