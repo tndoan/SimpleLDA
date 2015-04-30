@@ -16,39 +16,44 @@ function calculateLikelihood(matrix, beta, gammas)
     return llh
 end
 
-function EStep(K, N, d, alpha, beta, docVector)
+function EStep(K, alpha, beta, docVector)
     # doing E-step
     # K is number of topic
-    # N is total number of words
-    # d is the index of document
     # alpha, beta are parameters
     # docVector: term vector of doc 1 x N
 
     # init phi and gamma
+    wIds = find(docVector) # word id of term in document
+    N = length(wIds)
     phi = ones(N, K) * 1 / K
     gamma = copy(alpha) + N / K # size of gamma K x 1
-    wIds = find(docVector) # word id of term in document d
 
     # loop until convergence
     convergent = false
     threshold = 0.01 # parameter for checking convergence
+    counter = 1
+    println("Estep")
     while ~convergent
+        println(counter)
         oldPhi = copy(phi)
         oldGamma = copy(gamma)
 
         # update phi
         e_dig = exp(digamma(gamma))
-        phi = beta[:, d] .* repmat(e_dig, 1, N) # TODO error: beta
+        phi = beta[:, wIds] .* repmat(e_dig, 1, N)
         phi = phi ./ repmat(sum(phi, 2), 1, N)
 
         # update gamma
-        gamma = alpha + sum(phi, 1)
+        println(alpha)
+        println(sum(phi, 1))
+        gamma = alpha + sum(phi, 2)'
 
         # checking convergence
         m = max(abs(phi - oldPhi), abs(gamma - oldGamma))
         if m < threshold
             convergent = true
         end
+        counter += 1
     end
 
     # return result
@@ -102,7 +107,7 @@ function MStep(K, D, N, phi, gamma, matrix)
 end
 
 
-function doingEM(K, alpha, beta, vocFile="../data/vocab.txt", dataFile="../data/ap.dat")
+function doingEM(K, vocFile="../data/vocab.txt", dataFile="../data/ap.dat")
     # K is number of topic
     # D number of documents
     # N total number of words
@@ -118,20 +123,24 @@ function doingEM(K, alpha, beta, vocFile="../data/vocab.txt", dataFile="../data/
     # create phi and gamma to allocate memory only
     phi = zeros(D, N, K)
     gamma = zeros(K, D)
+    # init alpha and beta
+    alpha = rand(K, 1)
+    b = rand(K, D)
+    beta = broadcast(*, b, 1 ./ sum(b, 1)) # normalize
 
-    # old alpha, beta
-    alpha0 = alpha
-    beta0 = beta
+    counter = 1
 
+    pllh = 0 # previous likelihood
     threshold = 0.001
 
     while ~convergent
         # loop until convergence
+        println(counter)
 
         # E-step
         for d=1:D
             # doing for each document in corpus
-            (subPhi, subGamma) = EStep(K, N, d, alpha, beta, matrix[d, :])
+            (subPhi, subGamma) = EStep(K, alpha, beta, matrix[d, :])
             phi[d, :, :] = subPhi
             gamma[:, d] = subGamma
         end
@@ -140,12 +149,13 @@ function doingEM(K, alpha, beta, vocFile="../data/vocab.txt", dataFile="../data/
         (alpha, beta) = MStep(K, N, phi, gamma, matrix)
 
         # checking convergence
-        errRate = sum(abs(alpha - alpha0)) + sum(abs(beta - beta0))
-        if errRate < threshold
+        llh = calculateLikelihood(matrix, beta, gamma)
+        if abs(pllh - llh) < threshold
             convergent = true
         else
-            alpha0 = alpha
-            beta0 = beta
+            pllh = llh
+            println(llh)
         end
+        counter += 1
     end
 end
