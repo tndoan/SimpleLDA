@@ -16,7 +16,7 @@ function calculateLikelihood(matrix, beta, gammas)
     return llh
 end
 
-function EStep(K, alpha, beta, docVector)
+function EStep(K, alpha, beta, docVector, maxIter=10)
     # doing E-step
     # K is number of topic
     # alpha, beta are parameters
@@ -48,7 +48,7 @@ function EStep(K, alpha, beta, docVector)
 
         # checking convergence
         m = max(sum(abs(phi - oldPhi)), sum(abs(gammas - oldGamma)))
-        if m < threshold || counter == 50
+        if m < threshold || counter == 10
             convergent = true
         end
         counter += 1
@@ -65,14 +65,14 @@ function updateBeta(K, phi, matrix)
     # update beta
     for d=1:D
         wIds = find(matrix[d, :])
-        beta[:, wIds] += phi[d]
+        beta[:, wIds] += (diagm(vec(matrix[d, wIds])) * phi[d]')'
     end
     #normalize beta
     beta = broadcast( * , beta, 1./sum(beta, 1))
     return beta
 end
 
-function updateAlpha(K, gammas, maxIter=50)
+function updateAlpha(K, gammas, maxIter=10)
     # K is number of topic
     # D is total number of documents
     # N is total number of words
@@ -90,7 +90,7 @@ function updateAlpha(K, gammas, maxIter=50)
     pg = sum(digamma(gammas),2) - sum(digamma(sum(gammas,1)));
 
     while ~convergent
-        L = L_α(alpha, gammas)
+        #L = L_α(alpha, gammas)
         #println("MStep: ", counter, ":L:", L, ":alpha:", alpha)
         oldAlpha = copy(alpha)
         
@@ -104,9 +104,6 @@ function updateAlpha(K, gammas, maxIter=50)
         end
 
         # check convergence
-        println(alpha)
-        println(oldAlpha)
-        println(sum(abs(alpha - oldAlpha)))
         if sum(abs(alpha - oldAlpha)) < threshold || counter == maxIter
             convergent = true
         end
@@ -159,10 +156,9 @@ function doingEM(K, vocFile="../data/vocab.txt", dataFile="../data/ap.dat")
 
     while ~convergent
         # loop until convergence
-        #println(counter)
 
         # E-step
-        println("E step")
+        #println("E step")
         for d=1:D
             # doing for each document in corpus
             (subPhi, subGamma) = EStep(K, alpha, beta, matrix[d, :])
@@ -171,18 +167,19 @@ function doingEM(K, vocFile="../data/vocab.txt", dataFile="../data/ap.dat")
         end
 
         # M-step
-        println("M Step")
+        #println("M Step")
         beta = updateBeta(K, phi, matrix)
         alpha = updateAlpha(K, gammas)
 
         # checking convergence
         llh = calculateLikelihood(matrix, beta, gammas)
-        println(llh)
-        if abs(pllh - llh) < threshold
+        println("iter:", counter,"\tLLH:", llh)
+        #if abs(pllh - llh) < threshold
+        if counter == 10
             convergent = true
-        else
-            pllh = llh
-            println(llh)
+        #else
+        #    pllh = llh
+        #    println(llh)
         end
         counter += 1
     end
