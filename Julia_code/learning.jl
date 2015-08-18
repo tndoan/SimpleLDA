@@ -4,11 +4,11 @@ function calculateLikelihood(matrix, beta, gammas)
     llh = 0
     D, V = size(matrix) # number of documents
 
-    for i = 1:D
+    for d = 1:D
         g = gammas[:, d]  / sum(gammas[:, d]) # normalize
         for j = 1:V
-            if matrix[i, j] != 0
-                llh += matrix[i, j] * dot(g, beta[:, j])
+            if matrix[d, j] != 0
+                llh += matrix[d, j] * log(dot(g, beta[:, j]))
             end
         end
     end
@@ -21,89 +21,110 @@ function EStep(K, alpha, beta, docVector)
     # K is number of topic
     # alpha, beta are parameters
     # docVector: term vector of doc 1 x N
+    # docVector[i] = j means i-th word has j occurrence in corpus
 
     # init phi and gamma
     wIds = find(docVector) # word id of term in document
     N = length(wIds)
-    phi = ones(N, K) * 1 / K
-    gamma = copy(alpha) + N / K # size of gamma K x 1
+    phi = (ones(N, K) * 1 / K)'
+    gammas = copy(alpha) + N / K # size of gamma K x 1
 
     # loop until convergence
     convergent = false
     threshold = 0.01 # parameter for checking convergence
     counter = 1
-    println("Estep")
+    
     while ~convergent
-        println(counter)
         oldPhi = copy(phi)
-        oldGamma = copy(gamma)
+        oldGamma = copy(gammas)
 
         # update phi
-        e_dig = exp(digamma(gamma))
-        phi = beta[:, wIds] .* repmat(e_dig, 1, N)
-        phi = phi ./ repmat(sum(phi, 2), 1, N)
+        e_dig = exp(digamma(gammas))
+        phi = beta[:, wIds] .* e_dig
+        phi = phi ./ sum(phi, 1)
 
         # update gamma
-        println(alpha)
-        println(sum(phi, 1))
-        gamma = alpha + sum(phi, 2)'
+        gammas = alpha + sum(phi, 2)
 
         # checking convergence
-        m = max(abs(phi - oldPhi), abs(gamma - oldGamma))
-        if m < threshold
+        m = max(sum(abs(phi - oldPhi)), sum(abs(gammas - oldGamma)))
+        if m < threshold || counter == 50
             convergent = true
         end
         counter += 1
     end
 
     # return result
-    return (phi, gamma)
+    return (phi, gammas)
 end
 
-function MStep(K, D, N, phi, gamma, matrix)
-    # K is number of topic
-    # D is total number of documents
-    # N is total number of words
+function updateBeta(K, phi, matrix)
+    D, N = size(matrix)
     beta = zeros(K, N)
-    alpha = zeros(K, 1)
     
     # update beta
     for d=1:D
-        for n=1:N
-            if matrix[d, n] > 0 # this word belongs to this doc
-                # squeeze to convert to vector
-                beta[:, n] += squeeze(phi[d, n, :], 1)'
-            end
-        end
+        wIds = find(matrix[d, :])
+        beta[:, wIds] += phi[d]
     end
     #normalize beta
-    beta /= repmat(sum(beta, 2), 1, N)
+    beta = broadcast( * , beta, 1./sum(beta, 1))
+    return beta
+end
+
+function updateAlpha(K, gammas, maxIter=50)
+    # K is number of topic
+    # D is total number of documents
+    # N is total number of words
+    # phi is 
+    # gammas is K x D matrix
+    # matrix is (
     
+    #alpha = zeros(K, 1) + 1
+    (K, D) = size(gammas)
+    alpha = mean(gammas, 2) ./ K
     # update alpha
     convergent = false
-    threshold = 0.001
+    threshold = 0.01
+    counter = 1
+    pg = sum(digamma(gammas),2) - sum(digamma(sum(gammas,1)));
+
     while ~convergent
-        oldAlpha = alpha
+        L = L_α(alpha, gammas)
+        #println("MStep: ", counter, ":L:", L, ":alpha:", alpha)
+        oldAlpha = copy(alpha)
+        
+        alpha0 = sum(alpha)
+        g = D * (digamma(alpha0) - digamma(alpha)) + pg
+        h = -1 ./ trigamma(alpha)
+        hgz = h' * g / (1 / trigamma(alpha0) + sum(h))
 
-        # gradient of alpha
-        g = D * (digamma(sum(oldAlpha)) - digamma(oldAlpha))
-        g += sum(digamma(gamma), 2) - sum(digamma(sum(gamma, 1)))
-
-        # Hessian matrix of alpha
-        h = D * (trigamma(sum(oldAlpha)) - eye(K) * trigamma(oldAlpha))
-
-        # calculate alpha
-        # TODO could be better if we use optimization from paper
-        alpha = oldAlpha - inv(h) * g
+        for i=1:K
+            alpha[i] = alpha[i] - h[i] * ( g[i] - hgz[1, 1]) / D
+        end
 
         # check convergence
-        if sum(abs(alpha - oldAlpha)) < threshold
+        println(alpha)
+        println(oldAlpha)
+        println(sum(abs(alpha - oldAlpha)))
+        if sum(abs(alpha - oldAlpha)) < threshold || counter == maxIter
             convergent = true
         end
+        counter +=1 
     end
 
-    # return alpha, beta
-    return (alpha, beta)
+    return alpha
+end
+
+function L_α(α, γs)
+    (K, D) = size(γs)
+    L = D * (  log(gamma(sum(α))) - sum(log(gamma(α))))
+    for d=1:D
+        for i=1:K
+            L += ( α[i] - 1 ) * ( digamma(γs[i, d]) - digamma(sum(γs[:, d])))
+        end
+    end
+    return L
 end
 
 
@@ -115,41 +136,48 @@ function doingEM(K, vocFile="../data/vocab.txt", dataFile="../data/ap.dat")
     # beta is matrix K x D
     corpus = readFile(dataFile)
     D = length(corpus) # number of doc in dataset
+    println(D)
     vocab = readVoc(vocFile)
     N = length(vocab) # number of vocabulary in dataset
+    println(N)
     matrix = convertToMatrix(corpus, vocab) # size D x N
 
     convergent = false
     # create phi and gamma to allocate memory only
-    phi = zeros(D, N, K)
-    gamma = zeros(K, D)
+    phi = Dict()
+    gammas = zeros(K, D)
     # init alpha and beta
     alpha = rand(K, 1)
-    b = rand(K, D)
+    alpha = alpha ./ sum(alpha) # normalize alpha
+    b = rand(K, N)
     beta = broadcast(*, b, 1 ./ sum(b, 1)) # normalize
 
     counter = 1
 
     pllh = 0 # previous likelihood
-    threshold = 0.001
+    threshold = 0.01
 
     while ~convergent
         # loop until convergence
-        println(counter)
+        #println(counter)
 
         # E-step
+        println("E step")
         for d=1:D
             # doing for each document in corpus
             (subPhi, subGamma) = EStep(K, alpha, beta, matrix[d, :])
-            phi[d, :, :] = subPhi
-            gamma[:, d] = subGamma
+            phi[d] = subPhi
+            gammas[:, d] = subGamma
         end
 
         # M-step
-        (alpha, beta) = MStep(K, N, phi, gamma, matrix)
+        println("M Step")
+        beta = updateBeta(K, phi, matrix)
+        alpha = updateAlpha(K, gammas)
 
         # checking convergence
-        llh = calculateLikelihood(matrix, beta, gamma)
+        llh = calculateLikelihood(matrix, beta, gammas)
+        println(llh)
         if abs(pllh - llh) < threshold
             convergent = true
         else
