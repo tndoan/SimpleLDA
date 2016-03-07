@@ -13,7 +13,7 @@ There are several Matlab implementations. Below are some that I could find from 
 To run the code, change directory to folder ```Julia_code``` and open Julia REPL by running ```julia```
 
 ```julia
-julia> reload("learning.jl")
+julia> include("learning.jl")
 
 julia> doingEM(5, "../data/testvocab.txt", "../data/test.dat")
 12
