@@ -1,13 +1,15 @@
-function readFile(filename="../data/ap.dat")
+function readFile(filename="../data/test.dat")
     # read the data file
     # return list of document whose format is 1st value is the number of words and following array of pair (word id, its frequency)
-    result = {}
+    result = []
     open(filename, "r") do f
         for line in eachline(f)
-            comp = split(line, " ")
-            numWords = int(comp[1])
-            bagOfWords = comp[2:size(comp)[1]]
-            wordInfo = (Int64, Int64)[]
+            comp = split(strip(line, '\n'), " ")
+            numWords = parse(Int, comp[1])
+            
+            bagOfWords = comp[2:end]
+
+            wordInfo = Tuple{Int64, Int64}[]
             for word in bagOfWords
                 temp = split(word, ":")
                 if length(temp) != 2
@@ -15,7 +17,7 @@ function readFile(filename="../data/ap.dat")
                 end
                 # temp[1] is the word id. +1 to avoid index 0 because Julia starts from 1
                 # temp[2] is the number of times that this word appears in document
-                push!(wordInfo, (int(temp[1]) + 1, int(temp[2])))
+                push!(wordInfo, (parse(Int64, temp[1]) + 1, parse(Int64, temp[2])))
             end
             tuple = (numWords, wordInfo)
             push!(result, tuple)
@@ -24,7 +26,7 @@ function readFile(filename="../data/ap.dat")
     return result
 end
 
-function readVoc(filename="../data/vocab.txt")
+function readVoc(filename="../data/testvocab.txt")
     # read the list of vocabulary
     result = ASCIIString[]
     open(filename, "r") do f
@@ -36,7 +38,7 @@ function readVoc(filename="../data/vocab.txt")
     return result
 end
 
-function readMatrix(voc, filename="../data/ap.dat")
+function readMatrix(voc, filename="../data/test.dat")
     # read data file
     # filename name of file contain LDA-C format
     # voc list of vocabulary

@@ -1,5 +1,3 @@
-require("utils")
-
 function calculateLikelihood(matrix, beta, gammas)
     llh = 0
     D, V = size(matrix) # number of documents
@@ -125,7 +123,7 @@ function L_α(α, γs)
 end
 
 
-function doingEM(K, vocFile="../data/vocab.txt", dataFile="../data/ap.dat")
+function doingEM(K, vocFile="../data/testvocab.txt", dataFile="../data/test.dat")
     # K is number of topic
     # D number of documents
     # N total number of words
@@ -159,7 +157,7 @@ function doingEM(K, vocFile="../data/vocab.txt", dataFile="../data/ap.dat")
 
         # E-step
         #println("E step")
-        for d=1:D
+        for d = 1:D
             # doing for each document in corpus
             (subPhi, subGamma) = EStep(K, alpha, beta, matrix[d, :])
             phi[d] = subPhi
